@@ -1563,7 +1563,11 @@ adminPanel.innerHTML = `
 <button class="adminClose" onclick="closeAdminPanel()">✕</button>
 
 <h1>⚙️ RESALE OG ADMIN</h1>
+<button class="adminMainBtn" onclick="loadAdminOrders()">
+  📦 View Orders
+</button>
 
+<div id="adminOrders"></div>
 <h2>Add Product</h2>
 
 <input id="adminTitle"
@@ -1611,7 +1615,111 @@ Loading...
 `;
 
 document.body.appendChild(adminPanel);
+async function loadAdminOrders(){
 
+  const box =
+    document.getElementById("adminOrders");
+
+  if(!box) return;
+
+  box.innerHTML =
+    "<p>Loading orders...</p>";
+
+  const result =
+    await supabaseClient
+      .from("orders")
+      .select("*")
+      .order("created_at", {
+        ascending:false
+      });
+
+  if(result.error){
+
+    box.innerHTML =
+      "<p>Unable to load orders.</p>";
+
+    console.error(result.error);
+
+    return;
+  }
+
+  const orders = result.data || [];
+
+  if(!orders.length){
+
+    box.innerHTML =
+      "<p>No orders found.</p>";
+
+    return;
+  }
+
+  box.innerHTML = orders.map(order => {
+
+    const date =
+      order.created_at
+        ? new Date(order.created_at)
+            .toLocaleString()
+        : "";
+
+    return `
+      <div class="adminOrderCard">
+
+        <h3>
+          🧾 Order
+          ${String(order.id).slice(0,8)}
+        </h3>
+
+        <p>
+          <b>Customer:</b>
+          ${order.customer_name || "-"}
+        </p>
+
+        <p>
+          <b>Mobile:</b>
+          ${order.customer_phone || "-"}
+        </p>
+
+        <p>
+          <b>Address:</b>
+          ${order.address || "-"}
+        </p>
+
+        <p>
+          <b>City:</b>
+          ${order.city || "-"}
+        </p>
+
+        <p>
+          <b>PIN:</b>
+          ${order.pin_code || "-"}
+        </p>
+
+        <p>
+          <b>Total:</b>
+          ₹${Number(order.total_amount || 0).toLocaleString("en-IN")}
+        </p>
+
+        <p>
+          <b>Order Status:</b>
+          ${order.status || "pending"}
+        </p>
+
+        <p>
+          <b>Payment:</b>
+          ${order.payment_status || "pending"}
+        </p>
+
+        <p>
+          <b>Date:</b>
+          ${date}
+        </p>
+
+      </div>
+    `;
+
+  }).join("");
+
+}
 
 /* SHOW ADMIN BUTTON ONLY FOR ADMIN */
 
