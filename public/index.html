@@ -1097,18 +1097,112 @@ async function placeOrder(){
     document.getElementById("checkoutPin")
       .value.trim();
 
+  const msg =
+    document.getElementById("checkoutMsg");
+
   if(!name || !phone || !address || !city || !pin){
 
-    document.getElementById("checkoutMsg")
-      .textContent =
+    msg.textContent =
       "Please fill all details.";
 
     return;
   }
 
-  document.getElementById("checkoutMsg")
-    .textContent =
-    "Order system ready — payment next.";
+  if(!supabaseClient){
+
+    msg.textContent =
+      "Supabase connection is not ready.";
+
+    return;
+  }
+
+  const sessionResult =
+    await supabaseClient.auth.getSession();
+
+  const session =
+    sessionResult.data.session;
+
+  if(!session){
+
+    msg.textContent =
+      "Please login first.";
+
+    return;
+  }
+
+  const total =
+    cart.reduce(
+      (sum,item) =>
+        sum +
+        (Number(item.price) || 0) *
+        (Number(item.qty) || 0),
+      0
+    );
+
+  msg.textContent =
+    "Placing your order...";
+
+  const orderData = {
+
+    buyer_id: session.user.id,
+
+    total_amount: total,
+
+    status: "pending",
+
+    customer_name: name,
+
+    customer_phone: phone,
+
+    address: address,
+
+    city: city,
+
+    pin_code: pin,
+
+    items: cart,
+
+    payment_method: "pending",
+
+    payment_status: "pending"
+
+  };
+
+  const result =
+    await supabaseClient
+      .from("orders")
+      .insert(orderData)
+      .select()
+      .single();
+
+  if(result.error){
+
+    console.error(result.error);
+
+    msg.textContent =
+      "Order failed: " +
+      result.error.message;
+
+    return;
+  }
+
+  cart = [];
+
+  localStorage.removeItem("resale_cart");
+
+  updateCart();
+
+  msg.textContent =
+    "Order placed successfully! 🎉";
+
+  toast("Order placed successfully 🎉");
+
+  setTimeout(function(){
+
+    closeCheckout();
+    closeCart();
+
+  },1200);
 
 }
 
