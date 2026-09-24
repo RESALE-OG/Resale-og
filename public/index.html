@@ -1105,7 +1105,351 @@ if(supabaseClient){
 
 
 loadProducts();
+/* ================= ADMIN PANEL ================= */
 
+async function checkAdmin() {
+  if (!supabaseClient) return false;
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return false;
+
+  const { data } = await supabaseClient
+    .from("admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return !!data;
+}
+
+async function openAdminPanel() {
+  const isAdmin = await checkAdmin();
+
+  if (!isAdmin) {
+    alert("Admin access only.");
+    return;
+  }
+
+  document.getElementById("adminPanel").classList.add("open");
+  await loadAdminProducts();
+}
+
+function closeAdminPanel() {
+  document.getElementById("adminPanel").classList.remove("open");
+}
+
+async function addAdminProduct() {
+  const title = document.getElementById("adminTitle").value.trim();
+  const description = document.getElementById("adminDescription").value.trim();
+  const price = Number(document.getElementById("adminPrice").value);
+  const category = document.getElementById("adminCategory").value;
+  const condition = document.getElementById("adminCondition").value;
+  const image_url = document.getElementById("adminImage").value.trim();
+
+  if (!title || !price) {
+    alert("Title aur price required hai.");
+    return;
+  }
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  if (!user) {
+    alert("Please login first.");
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("products")
+    .insert({
+      seller_id: user.id,
+      title,
+      description,
+      price,
+      category,
+      condition,
+      image_url,
+      status: "active"
+    });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Product added successfully!");
+
+  document.getElementById("adminTitle").value = "";
+  document.getElementById("adminDescription").value = "";
+  document.getElementById("adminPrice").value = "";
+  document.getElementById("adminImage").value = "";
+
+  await loadAdminProducts();
+  await loadProducts();
+}
+
+async function loadAdminProducts() {
+  const box = document.getElementById("adminProducts");
+
+  const { data, error } = await supabaseClient
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    box.textContent = error.message;
+    return;
+  }
+
+  box.innerHTML = "";
+
+  data.forEach(function(product) {
+
+    const item = document.createElement("div");
+    item.className = "admin-product";
+
+    const name = document.createElement("b");
+    name.textContent = product.title;
+
+    const info = document.createElement("div");
+    info.textContent =
+      "₹" + product.price + " • " +
+      product.category + " • " +
+      product.condition;
+
+    const edit = document.createElement("button");
+    edit.textContent = "Edit";
+    edit.onclick = function() {
+      editAdminProduct(product);
+    };
+
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+    del.onclick = function() {
+      deleteAdminProduct(product.id);
+    };
+
+    item.appendChild(name);
+    item.appendChild(info);
+    item.appendChild(edit);
+    item.appendChild(del);
+
+    box.appendChild(item);
+  });
+}
+
+async function editAdminProduct(product) {
+
+  const title = prompt("Product name:", product.title);
+  if (title === null) return;
+
+  const price = prompt("Price:", product.price);
+  if (price === null) return;
+
+  const category = prompt("Category:", product.category);
+  if (category === null) return;
+
+  const condition = prompt("Condition:", product.condition);
+  if (condition === null) return;
+
+  const { error } = await supabaseClient
+    .from("products")
+    .update({
+      title: title,
+      price: Number(price),
+      category: category,
+      condition: condition
+    })
+    .eq("id", product.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Product updated!");
+  await loadAdminProducts();
+  await loadProducts();
+}
+
+async function deleteAdminProduct(id) {
+
+  if (!confirm("Is product ko delete karna hai?")) return;
+
+  const { error } = await supabaseClient
+    .from("products")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Product deleted!");
+  await loadAdminProducts();
+  await loadProducts();
+}
+
+
+/* ADMIN UI */
+
+const adminStyle = document.createElement("style");
+
+adminStyle.textContent = `
+#adminBtn{
+  position:fixed;
+  right:15px;
+  bottom:20px;
+  z-index:9999;
+  background:#20cfff;
+  color:#001018;
+  border:0;
+  border-radius:12px;
+  padding:12px 18px;
+  font-weight:800;
+}
+
+#adminPanel{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  background:#06131b;
+  color:white;
+  padding:25px;
+  overflow:auto;
+  display:none;
+}
+
+#adminPanel.open{
+  display:block;
+}
+
+.adminInput{
+  width:100%;
+  box-sizing:border-box;
+  margin:7px 0;
+  padding:13px;
+  border-radius:10px;
+  border:1px solid #24495b;
+  background:#0b202b;
+  color:white;
+}
+
+.adminMainBtn{
+  width:100%;
+  padding:14px;
+  margin:8px 0;
+  border:0;
+  border-radius:10px;
+  background:#20cfff;
+  color:#001018;
+  font-weight:800;
+}
+
+.adminClose{
+  float:right;
+  font-size:25px;
+  background:none;
+  color:white;
+  border:0;
+}
+
+.admin-product{
+  background:#0b202b;
+  border:1px solid #24495b;
+  border-radius:12px;
+  padding:14px;
+  margin:10px 0;
+}
+
+.admin-product button{
+  margin:10px 5px 0 0;
+  padding:9px 14px;
+  border:0;
+  border-radius:8px;
+}
+`;
+
+document.head.appendChild(adminStyle);
+
+const adminButton = document.createElement("button");
+adminButton.id = "adminBtn";
+adminButton.textContent = "⚙️ Admin";
+adminButton.style.display = "none";
+adminButton.onclick = openAdminPanel;
+
+document.body.appendChild(adminButton);
+
+const adminPanel = document.createElement("div");
+adminPanel.id = "adminPanel";
+
+adminPanel.innerHTML = `
+<button class="adminClose" onclick="closeAdminPanel()">✕</button>
+
+<h1>⚙️ RESALE OG ADMIN</h1>
+
+<h2>Add Product</h2>
+
+<input id="adminTitle"
+class="adminInput"
+placeholder="Product name">
+
+<textarea id="adminDescription"
+class="adminInput"
+placeholder="Description"></textarea>
+
+<input id="adminPrice"
+class="adminInput"
+type="number"
+placeholder="Price">
+
+<select id="adminCategory" class="adminInput">
+<option>Fashion</option>
+<option>Electronics</option>
+<option>Shoes</option>
+<option>Accessories</option>
+<option>Other</option>
+</select>
+
+<select id="adminCondition" class="adminInput">
+<option>New</option>
+<option>Like New</option>
+<option>Excellent</option>
+<option>Good</option>
+<option>Used</option>
+</select>
+
+<input id="adminImage"
+class="adminInput"
+placeholder="Image URL">
+
+<button class="adminMainBtn" onclick="addAdminProduct()">
+➕ Add Product
+</button>
+
+<h2>Products</h2>
+
+<div id="adminProducts">
+Loading...
+</div>
+`;
+
+document.body.appendChild(adminPanel);
+
+
+/* SHOW ADMIN BUTTON ONLY FOR ADMIN */
+
+(async function initAdmin() {
+
+  if (!supabaseClient) return;
+
+  const isAdmin = await checkAdmin();
+
+  if (isAdmin) {
+    document.getElementById("adminBtn").style.display = "block";
+  }
+
+})();
 </script>
 
 </body>
