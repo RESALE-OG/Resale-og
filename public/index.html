@@ -406,7 +406,51 @@ footer{
   </div>
 </div>
 
+<!-- CHECKOUT -->
+<div id="checkoutModal" class="modal">
+  <div class="shade" onclick="closeCheckout()"></div>
 
+  <div class="modalbox">
+    <button class="close" onclick="closeCheckout()">×</button>
+
+    <h2>Checkout 🛍️</h2>
+
+    <input id="checkoutName"
+      class="input"
+      type="text"
+      placeholder="Full Name">
+
+    <input id="checkoutPhone"
+      class="input"
+      type="tel"
+      placeholder="Mobile Number">
+
+    <input id="checkoutAddress"
+      class="input"
+      type="text"
+      placeholder="Full Address">
+
+    <input id="checkoutCity"
+      class="input"
+      type="text"
+      placeholder="City">
+
+    <input id="checkoutPin"
+      class="input"
+      type="tel"
+      placeholder="PIN Code">
+
+    <div class="total">
+      Total: ₹<span id="checkoutTotal">0</span>
+    </div>
+
+    <button class="primary full" onclick="placeOrder()">
+      Place Order
+    </button>
+
+    <p id="checkoutMsg"></p>
+  </div>
+</div>
 <!-- LOGIN -->
 
 <div id="loginModal" class="modal">
@@ -990,43 +1034,81 @@ async function login(){
 async function checkout(){
 
   if(!cart.length){
-
     toast("Cart is empty");
-
     return;
-
   }
-
 
   if(!supabaseClient){
-
     openLogin();
-
     document.getElementById("authMsg")
-      .textContent=
-        "Please connect Supabase first.";
-
+      .textContent="Please connect Supabase first.";
     return;
-
   }
 
-
-  const result=
+  const result =
     await supabaseClient.auth.getSession();
 
-
   if(!result.data.session){
-
     openLogin();
-
     return;
-
   }
 
-
-  toast(
-    "Checkout ready — payment next."
+  const total = cart.reduce(
+    (sum,item) =>
+      sum +
+      (Number(item.price) || 0) *
+      (Number(item.qty) || 0),
+    0
   );
+
+  document.getElementById("checkoutTotal")
+    .textContent = money(total);
+
+  document.getElementById("checkoutModal")
+    .classList.add("open");
+}
+
+function closeCheckout(){
+
+  document.getElementById("checkoutModal")
+    .classList.remove("open");
+
+}
+
+async function placeOrder(){
+
+  const name =
+    document.getElementById("checkoutName")
+      .value.trim();
+
+  const phone =
+    document.getElementById("checkoutPhone")
+      .value.trim();
+
+  const address =
+    document.getElementById("checkoutAddress")
+      .value.trim();
+
+  const city =
+    document.getElementById("checkoutCity")
+      .value.trim();
+
+  const pin =
+    document.getElementById("checkoutPin")
+      .value.trim();
+
+  if(!name || !phone || !address || !city || !pin){
+
+    document.getElementById("checkoutMsg")
+      .textContent =
+      "Please fill all details.";
+
+    return;
+  }
+
+  document.getElementById("checkoutMsg")
+    .textContent =
+    "Order system ready — payment next.";
 
 }
 
