@@ -1032,6 +1032,8 @@ async function login(){
 
 /* CHECKOUT */
 
+/* CHECKOUT */
+
 async function checkout(){
 
   if(!cart.length){
@@ -1041,26 +1043,28 @@ async function checkout(){
 
   if(!supabaseClient){
     openLogin();
-    document.getElementById("authMsg")
-      .textContent="Please connect Supabase first.";
     return;
   }
 
   const result =
     await supabaseClient.auth.getSession();
 
-  if(!result.data.session){
+  const session =
+    result.data.session;
+
+  if(!session){
     openLogin();
     return;
   }
 
-  const total = cart.reduce(
-    (sum,item) =>
-      sum +
-      (Number(item.price) || 0) *
-      (Number(item.qty) || 0),
-    0
-  );
+  const total =
+    cart.reduce(
+      (sum,item) =>
+        sum +
+        (Number(item.price) || 0) *
+        (Number(item.qty) || 0),
+      0
+    );
 
   document.getElementById("checkoutTotal")
     .textContent = money(total);
@@ -1141,71 +1145,216 @@ async function placeOrder(){
     );
 
   msg.textContent =
-    "Placing your order...";
+    "Creating order...";
 
-  const orderData = {
+  /* SAVE PENDING ORDER */
 
-    buyer_id: session.user.id,
-
-    total_amount: total,
-
-    status: "pending",
-
-    customer_name: name,
-
-    customer_phone: phone,
-
-    address: address,
-
-    city: city,
-
-    pin_code: pin,
-
-    items: cart,
-
-    payment_method: "pending",
-
-    payment_status: "pending"
-
-  };
-
-  const result =
+  const orderResult =
     await supabaseClient
       .from("orders")
-      .insert(orderData)
+      .insert({
+        buyer_id: session.user.id,
+        total_amount: total,
+        status: "pending",
+        customer_name: name,
+        customer_phone: phone,
+        address: address,
+        city: city,
+        pin_code: pin,
+        items: cart,
+        payment_method: "razorpay",
+        payment_status: "pending"
+      })
       .select()
       .single();
 
-  if(result.error){
+  if(orderResult.error){
 
-    console.error(result.error);
+    console.error(orderResult.error);
 
     msg.textContent =
-      "Order failed: " +
-      result.error.message;
+      "Order creation failed: " +
+      orderResult.error.message;
 
     return;
   }
 
-  cart = [];
+  const dbOrder =
+    orderResult.data;
 
-  localStorage.removeItem("resale_cart");
-
-  updateCart();
+  /* CREATE RAZORPAY ORDER */
 
   msg.textContent =
-    "Order placed successfully! 🎉";
+    "Opening Razorpay...";
 
-  toast("Order placed successfully 🎉");
+  const razorpayResult =
+    await supabaseClient.functions.invoke(
+      "bright-handler",
+      {
+        body: {
+          action: "create_order",
+          amount: total
+        }
+      }
+    );
 
-  setTimeout(function(){
+  if(razorpayResult.error){
 
-    closeCheckout();
-    closeCart();
+    console.error(
+      razorpayResult.error
+    );
 
-  },1200);
+    msg.textContent =
+      "Unable to start payment.";
 
-}
+    return;
+  }
+
+  const razorpayOrder =
+    razorpayResult.data;
+
+  if(
+    !razorpayOrder ||
+    !razorpayOrder.order_id
+  ){
+
+    msg.textContent =
+      razorpayOrder?.error ||
+      "Razorpay order failed.";
+
+    return;
+  }
+
+  /* OPEN RAZORPAY */
+
+  const options = {
+
+    key:
+      razorpayOrder.key_id,
+
+    amount:
+      razorpayOrder.amount,
+
+    currency:
+      razorpayOrder.currency,
+
+    name:
+      "RESALE OG",
+
+    description:
+      "RESALE OG Order",
+
+    order_id:
+      razorpayOrder.order_id,
+
+    prefill: {
+      name: name,
+      email:
+        session.user.email || "",
+      contact: phone
+    },
+
+    theme: {
+      color: "#20d8ff"
+    },
+
+    handler:
+      async function(response){
+
+        msg.textContent =
+          "Verifying payment...";
+
+        const verifyResult =
+          await supabaseClient
+            .functions
+            .invoke(
+              "bright-handler",
+              {
+                body: {
+
+                  action:
+                    "verify_payment",
+
+                  db_order_id:
+                    dbOrder.id,
+
+                  razorpay_order_id:
+                    response.razorpay_order_id,
+
+                  razorpay_payment_id:
+                    response.razorpay_payment_id,
+
+                  razorpay_signature:
+                    response.razorpay_signature
+                }
+              }
+            );
+
+        if(verifyResult.error){
+
+          console.error(
+            verifyResult.error
+          );
+
+          msg.textContent =
+            "Payment verification failed.";
+
+          return;
+        }
+
+        if(
+          !verifyResult.data ||
+          !verifyResult.data.success
+        ){
+
+          msg.textContent =
+            verifyResult.data?.error ||
+            "Payment verification failed.";
+
+          return;
+        }
+
+        /* PAYMENT SUCCESS */
+
+        cart = [];
+
+        localStorage.removeItem(
+          "resale_cart"
+        );
+
+        updateCart();
+
+        msg.textContent =
+          "Payment successful! 🎉";
+
+        toast(
+          "Payment successful 🎉"
+        );
+
+        setTimeout(function(){
+
+          closeCheckout();
+          closeCart();
+
+        },1200);
+      },
+
+    modal: {
+      ondismiss:
+        function(){
+
+          msg.textContent =
+            "Payment cancelled.";
+
+        }
+    }
+  };
+
+  const rzp =
+    new Razorpay(options);
+
+  rzp.open();
+    }
 
 
 /* LOAD PRODUCTS */
