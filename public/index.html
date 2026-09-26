@@ -2020,6 +2020,15 @@ async function openMyOrders(){
 
             const status =
               order.status || "pending";
+          const steps = [
+  "confirmed",
+  "packed",
+  "shipped",
+  "delivered"
+];
+
+const currentIndex =
+  steps.indexOf(status);
 
             return `
               <div style="
@@ -2053,34 +2062,70 @@ async function openMyOrders(){
                 </p>
 
                 <div style="
-                  display:flex;
-                  justify-content:space-between;
-                  align-items:center;
-                  margin-top:25px;
-                  gap:5px;
-                ">
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:25px;
+  gap:5px;
+">
 
-                  <span>✅</span>
-                  <span>📦</span>
-                  <span>🚚</span>
-                  <span>🎉</span>
+  ${steps.map((step, index) => {
 
-                </div>
+    const active =
+      currentIndex >= index;
 
-                <div style="
-                  display:flex;
-                  justify-content:space-between;
-                  font-size:11px;
-                  color:#8c9aae;
-                  margin-top:5px;
-                ">
+    const icons = [
+      "✅",
+      "📦",
+      "🚚",
+      "🎉"
+    ];
 
-                  <span>Confirmed</span>
-                  <span>Packed</span>
-                  <span>Shipped</span>
-                  <span>Delivered</span>
+    return `
+      <span style="
+        font-size:24px;
+        opacity:${active ? "1" : "0.3"};
+        filter:${active ? "none" : "grayscale(1)"};
+      ">
+        ${icons[index]}
+      </span>
+    `;
 
-                </div>
+  }).join("")}
+
+</div>
+
+<div style="
+  display:flex;
+  justify-content:space-between;
+  font-size:11px;
+  margin-top:5px;
+">
+
+  ${steps.map((step, index) => {
+
+    const active =
+      currentIndex >= index;
+
+    const names = [
+      "Confirmed",
+      "Packed",
+      "Shipped",
+      "Delivered"
+    ];
+
+    return `
+      <span style="
+        color:${active ? "#62e6a8" : "#8c9aae"};
+        font-weight:${active ? "bold" : "normal"};
+      ">
+        ${names[index]}
+      </span>
+    `;
+
+  }).join("")}
+
+</div>
 
               </div>
             `;
