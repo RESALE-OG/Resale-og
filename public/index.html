@@ -1863,14 +1863,64 @@ async function loadAdminOrders(){
           <b>Date:</b>
           ${date}
         </p>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:15px;">
 
+  <button
+    class="adminMainBtn"
+    onclick="updateOrderStatus('${order.id}','confirmed')">
+    ✅ Confirm
+  </button>
+
+  <button
+    class="adminMainBtn"
+    onclick="updateOrderStatus('${order.id}','packed')">
+    📦 Packed
+  </button>
+
+  <button
+    class="adminMainBtn"
+    onclick="updateOrderStatus('${order.id}','shipped')">
+    🚚 Shipped
+  </button>
+
+  <button
+    class="adminMainBtn"
+    onclick="updateOrderStatus('${order.id}','delivered')">
+    🎉 Delivered
+  </button>
+
+</div>
       </div>
     `;
 
   }).join("");
 
 }
+async function updateOrderStatus(orderId, newStatus){
 
+  const result =
+    await supabaseClient
+      .from("orders")
+      .update({
+        status: newStatus
+      })
+      .eq("id", orderId);
+
+  if(result.error){
+
+    console.error(result.error);
+
+    toast("Status update failed.");
+
+    return;
+  }
+
+  toast(
+    "Order status: " + newStatus
+  );
+
+  await loadAdminOrders();
+}
 /* SHOW ADMIN BUTTON ONLY FOR ADMIN */
 
 (async function initAdmin() {
