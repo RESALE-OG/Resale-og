@@ -1898,6 +1898,8 @@ async function loadAdminOrders(){
 }
 async function updateOrderStatus(orderId, newStatus){
 
+  alert("Updating order...");
+
   const result =
     await supabaseClient
       .from("orders")
@@ -1910,13 +1912,17 @@ async function updateOrderStatus(orderId, newStatus){
 
     console.error(result.error);
 
-    toast("Status update failed.");
+    alert(
+      "Status update failed:\n\n" +
+      result.error.message
+    );
 
     return;
   }
 
-  toast(
-    "Order status: " + newStatus
+  alert(
+    "Order status updated to: " +
+    newStatus
   );
 
   await loadAdminOrders();
